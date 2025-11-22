@@ -5,34 +5,25 @@ from pathlib import Path
 from time import time
 from typing import Optional
 
-from .language_map import LANGUAGE_MODEL_MAP
-
-try:
-    from TTS.api import TTS as CoquiTTS  # type: ignore
-except Exception:  # pragma: no cover - import error handled at runtime
-    CoquiTTS = None  # type: ignore
+from gtts import gTTS
 
 
-_TTS_INSTANCES: dict[str, "CoquiTTS"] = {}
 _TTS_CACHE: dict[tuple[str, str], str] = {}
 
 
-def _get_tts_backend(language: str) -> "CoquiTTS":
-    if CoquiTTS is None:
-        raise RuntimeError("TTS library is not installed or failed to import.")
+def _get_gtts_language_code(language: str) -> str:
+    lang_map = {
+        "english": "en",
+        "hindi": "hi",
+        "marathi": "mr",
+        "tamil": "ta",
+    }
 
     key = language.lower()
-    if key not in LANGUAGE_MODEL_MAP:
+    if key not in lang_map:
         raise ValueError(f"Unsupported language: {language}")
 
-    model_name = LANGUAGE_MODEL_MAP[key]
-
-    if model_name not in _TTS_INSTANCES:
-        # Lazy-load model once and reuse
-        tts = CoquiTTS(model_name=model_name)
-        _TTS_INSTANCES[model_name] = tts
-
-    return _TTS_INSTANCES[model_name]
+    return lang_map[key]
 
 
 def generate_tts(
@@ -59,7 +50,7 @@ def generate_tts(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    tts = _get_tts_backend(language)
+    lang_code = _get_gtts_language_code(language)
 
     # Note: voice_style is accepted for future extension; many Coqui models
     # are single-voice, so we simply ignore it for now.
@@ -69,8 +60,8 @@ def generate_tts(
     filename = f"scene_{safe_lang}_{timestamp}.wav"
     path = Path(output_dir) / filename
 
-    # Coqui TTS high-level API
-    tts.tts_to_file(text=cleaned, file_path=str(path))
+    tts = gTTS(text=cleaned, lang=lang_code)
+    tts.save(str(path))
 
     resolved = str(path.resolve())
     _TTS_CACHE[cache_key] = resolved
