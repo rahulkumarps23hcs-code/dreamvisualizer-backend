@@ -1,0 +1,12 @@
+.venv/
+env/
+__pycache__/
+*.pyc
+
+generated_images/
+generated_audio/
+generated_videos/
+exports/
+
+video/models/*.pth
+video/models/*.pt
