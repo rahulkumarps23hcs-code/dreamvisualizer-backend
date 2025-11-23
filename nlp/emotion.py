@@ -1,59 +1,54 @@
-from typing import Optional
+from typing import Dict
 
-from transformers import pipeline
-
-
-# Small emotion classification model
-_MODEL_NAME = "bhadresh-savani/distilbert-base-uncased-emotion"
-_emotion_pipeline: Optional[object] = None
-
-
-def _get_emotion_pipeline():
-    global _emotion_pipeline
-    if _emotion_pipeline is None:
-        _emotion_pipeline = pipeline("text-classification", model=_MODEL_NAME)
-    return _emotion_pipeline
-
-
-_LABEL_MAP = {
-    "joy": "joy",
-    "happiness": "joy",
-    "sadness": "sad",
-    "fear": "fear",
-    "anxiety": "fear",
-    "surprise": "adventure",
-    "excitement": "adventure",
-    "love": "calm",
-    "neutral": "calm",
-}
 
 _DEFAULT_EMOTION = "mystery"
+
+
+def _keyword_scores(text: str) -> Dict[str, int]:
+    cleaned = text.lower()
+    scores: Dict[str, int] = {"joy": 0, "sad": 0, "fear": 0, "adventure": 0, "calm": 0}
+
+    joy_words = ["happy", "joy", "smile", "excited", "fun", "laugh"]
+    sad_words = ["sad", "cry", "lonely", "tears", "hurt"]
+    fear_words = ["scared", "fear", "afraid", "anxious", "anxiety", "danger"]
+    adv_words = ["adventure", "explore", "mystery", "quest", "journey"]
+    calm_words = ["peace", "calm", "relax", "quiet", "sleep", "rest"]
+
+    for w in joy_words:
+        if w in cleaned:
+            scores["joy"] += 1
+    for w in sad_words:
+        if w in cleaned:
+            scores["sad"] += 1
+    for w in fear_words:
+        if w in cleaned:
+            scores["fear"] += 1
+    for w in adv_words:
+        if w in cleaned:
+            scores["adventure"] += 1
+    for w in calm_words:
+        if w in cleaned:
+            scores["calm"] += 1
+
+    return scores
 
 
 def detect_emotion(text: str) -> str:
     """Detect a coarse emotion label for the given text.
 
     Returns one of: joy | fear | mystery | adventure | sad | calm.
-    Uses a small transformer emotion classifier under the hood.
+    Uses a lightweight keyword classifier instead of external ML models.
     """
 
     cleaned = text.strip()
     if not cleaned:
         return "calm"
 
-    classifier = _get_emotion_pipeline()
-    result = classifier(cleaned, truncation=True)[0]
-    label = str(result["label"]).lower()
+    scores = _keyword_scores(cleaned)
+    label, value = max(scores.items(), key=lambda kv: kv[1])
 
-    mapped = _LABEL_MAP.get(label)
-    if mapped is None:
-        # Fall back to a generic "mystery" label for anything unknown
-        if "sad" in label:
-            return "sad"
-        if "fear" in label or "anxiety" in label:
-            return "fear"
-        if "joy" in label or "happy" in label:
-            return "joy"
+    if value == 0:
+        # No strong keyword match; treat as generic "mystery" story
         return _DEFAULT_EMOTION
 
-    return mapped
+    return label
